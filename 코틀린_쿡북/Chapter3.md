@@ -56,7 +56,7 @@ class Customer(val name: String) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         val otherCustomer = (other as? Customer) ?: return false
-        return this.name === otherCustomer.name
+        return this.name == otherCustomer.name
     }
 }
 ```
@@ -67,8 +67,8 @@ class Customer(val name: String) {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
         other as Customer
-        val otherCustomer = (other as? Customer) ?: return false
-        return this.name === otherCustomer.name
+        
+        return this.name == other.name
     }
 }
 ```
