@@ -92,3 +92,61 @@ private class NotNullVar<T : Any>() : ReadWriteProperty<Any?, T> {
 - `getValue`에서 value가 null이면 IllegalStateException를 발생시킨다.
 - `setValue`는 value를 그대로 설정한다.
 
+### Recipe 8.4 observable과 vetoable대리자 사용하기
+#### 문제
+속성의 변경을 가로채서, 필요에 따라 변경을 거부하고 싶다.
+#### 해법
+변경 감지에는 `observable` 함수를 사용하고, 변경의 여부를 결정할 때는 `vetoable` 함수와 람다를 사용하자.
+
+```kotlin
+ var watched: Int by Delegates.observable(1) { property, oldValue, newValue -> 
+     println("${prop.name} changed from $oldValue to $newValue")
+ }
+ 
+ var checked: Int by Delegates.vetoable(0) { property, oldValue, newValue ->
+    new >= 0
+}
+```
+`observable`: 이 변수가 변하는 경우 받은 함수(onChanged)를 실행
+`vetoable`: 이 변수가 변경할 때 받은 함수가 true를 반환해야 값을 변경함. false 경우는 무시
+
+```kotlin
+public inline fun <T> observable(initialValue: T, crossinline onChange: (property: KProperty<*>, oldValue: T, newValue: T) -> Unit):
+        ReadWriteProperty<Any?, T> =
+        object : ObservableProperty<T>(initialValue) {
+            override fun afterChange(property: KProperty<*>, oldValue: T, newValue: T) = onChange(property, oldValue, newValue)
+        }
+
+public inline fun <T> vetoable(initialValue: T, crossinline onChange: (property: KProperty<*>, oldValue: T, newValue: T) -> Boolean):
+        ReadWriteProperty<Any?, T> =
+        object : ObservableProperty<T>(initialValue) {
+            override fun beforeChange(property: KProperty<*>, oldValue: T, newValue: T): Boolean = onChange(property, oldValue, newValue)
+        }
+
+public abstract class ObservableProperty<V>(initialValue: V) : ReadWriteProperty<Any?, V> {
+    private var value = initialValue
+    
+    protected open fun beforeChange(property: KProperty<*>, oldValue: V, newValue: V): Boolean = true
+    protected open fun afterChange(property: KProperty<*>, oldValue: V, newValue: V): Unit {}
+
+    public override fun getValue(thisRef: Any?, property: KProperty<*>): V {
+        return value
+    }
+
+    public override fun setValue(thisRef: Any?, property: KProperty<*>, value: V) {
+        val oldValue = this.value
+        if (!beforeChange(property, oldValue, value)) {
+            return
+        }
+        this.value = value
+        afterChange(property, oldValue, value)
+    }
+}
+```
+
+- `observable`과 `vetoable` 모두 ObservableProperty 타입을 리턴한다.
+- ObservableProperty는 ReadWriteProperty를 구현하므로 getValue와 setValue를 구현한다.
+- ObservableProperty는 beforeChange, afterChange 메서드를 가진다.
+- setValue 함수에서 값을 변경하기 전, beforeChange가 false인 경우 값을 변경하지 않는다.
+- setValue 함수에서 값을 변경한 후 afterChange 함수를 호출한다.
+- `observable`과 `vetoable` 각각 afterChange와 beforeChange를 활용하여 구현한다.
