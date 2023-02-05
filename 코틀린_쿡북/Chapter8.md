@@ -64,3 +64,31 @@ private class SynchronizedLazyImpl<out T>(initializer: () -> T, lock: Any? = nul
         }
 }
 ```
+
+### Recipe 8.3 값이 null이 될 수 없게 만들기
+#### 문제
+처음 접근이 일어나기 전에 값이 초기화되지 않았다면 예외를 던지고 싶다.
+#### 해법
+notNull 함수를 이용해 값이 설정되지 않았다면 예외를 던지는 대리자를 제공한다.
+
+```kotlin
+var hi: String by Delegates.notNull() // null인 상태에서 사용하면 IllegalStateException 발생
+
+public fun <T : Any> notNull(): ReadWriteProperty<Any?, T> = NotNullVar()
+
+private class NotNullVar<T : Any>() : ReadWriteProperty<Any?, T> {
+    private var value: T? = null
+
+    public override fun getValue(thisRef: Any?, property: KProperty<*>): T {
+        return value ?: throw IllegalStateException("Property ${property.name} should be initialized before get.")
+    }
+
+    public override fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
+        this.value = value
+    }
+}
+```
+내부에서 NotNullVar 클래스를 사용한다. 그리고 NotNullVar는 아래와 같이 동작한다.
+- `getValue`에서 value가 null이면 IllegalStateException를 발생시킨다.
+- `setValue`는 value를 그대로 설정한다.
+
